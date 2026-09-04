@@ -1,14 +1,11 @@
 /* =========================================================================
    Court Schedule — site settings
-   Edit these to match your setup.
    ========================================================================= */
-const COURTS = ["Court 1"];   // add more names for multiple courts, e.g. ["Court 1", "Court 2"]
-const OPEN_HOUR = 8;          // schedule starts at 08:00
-const CLOSE_HOUR = 22;        // last slot starts before this hour
-const SLOT_MINUTES = 60;      // length of each bookable slot
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const COURTS = ["Ana Kort"];
+const OPEN_HOUR = 8;
+const CLOSE_HOUR = 24;
+const SLOT_MINUTES = 60;
 
-// This site always talks to this repo/file — no connection screen needed.
 const DEFAULT_CONFIG = {
   owner: 'iyiinsan5555',
   repo: 'tennis-court-reservation',
@@ -16,28 +13,140 @@ const DEFAULT_CONFIG = {
   path: 'data/reservations.json',
 };
 
-/* =========================================================================
-   Storage keys (browser-side only — never committed to the repo)
-   ========================================================================= */
 const LS_TOKEN = 'tcr_token_v1';
 const SS_TOKEN = 'tcr_token_v1';
+const LS_LANG = 'tcr_lang_v1';
+
+/* =========================================================================
+   Internationalization (i18n)
+   ========================================================================= */
+const I18N = {
+  tr: {
+    pageTitle: 'Saha Programı',
+    headerTitle: 'Saha Programı',
+    admin: 'Yönetici',
+    langBtn: 'EN',
+    adminTitle: 'Yönetici Erişimi',
+    adminHint: 'Rezervasyon eklemek veya iptal etmek için bir GitHub kişisel erişim anahtarı (PAT) gereklidir (programı görüntülemek herkes için çalışır). Yalnızca <code>tennis-court-reservation</code> deposu için <strong>Contents: Read and write</strong> iznine sahip <strong>fine-grained token</strong> kullanın. Bunu bir şifre gibi koruyun.',
+    lblToken: 'Kişisel erişim anahtarı',
+    show: 'Göster',
+    hide: 'Gizle',
+    rememberToken: 'Bu anahtarı bu cihazda hatırla (ortak/açık bilgisayarlarda işaretlemeyin)',
+    saveToken: 'Anahtarı kaydet',
+    clearToken: 'Anahtarı unut',
+    statusNotConnected: 'Bağlantı yok.',
+    prevWeek: 'Önceki hafta',
+    nextWeek: 'Sonraki hafta',
+    thisWeek: 'Bu hafta',
+    jumpTitle: 'Tarihe git',
+    newReservation: 'Yeni rezervasyon',
+    name: 'İsim',
+    phone: 'Telefon',
+    optional: '(isteğe bağlı)',
+    notes: 'Notlar',
+    cancel: 'İptal',
+    saveReservation: 'Rezervasyonu kaydet',
+    reservationDetail: 'Rezervasyon',
+    close: 'Kapat',
+    cancelReservation: 'Rezervasyonu iptal et',
+    courtLabel: 'Saha',
+    dateLabel: 'Tarih',
+    timeLabel: 'Saat',
+    nameLabel: 'İsim',
+    phoneLabel: 'Telefon',
+    notesLabel: 'Notlar',
+    available: 'Boş',
+    weekdays: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
+    locale: 'tr-TR',
+    loadingSchedule: 'Program yükleniyor…',
+    fileNotFoundToken: 'Veri dosyası henüz bulunamadı — oluşturmak için bir rezervasyon kaydedin.',
+    fileNotFoundNoToken: 'Veri dosyası depoda henüz bulunamadı.',
+    authError: 'Erişim anahtarı reddedildi veya depo erişimi eksik. Yönetici panelindeki anahtarı kontrol edin.',
+    loadError: (status) => `Program yüklenemedi (HTTP ${status}).`,
+    jsonError: 'Veri dosyası mevcut ancak geçerli bir JSON değil — depoda kontrol edin.',
+    connectedWrite: 'Bağlandı — rezervasyon ekleyebilir ve iptal edebilirsiniz.',
+    connectedRead: 'Bağlandı (salt okunur — düzenlemek için Yönetici panelinden anahtar ekleyin).',
+    addTokenToast: 'Değişiklikleri kaydetmek için Yönetici panelinden kişisel erişim anahtarı ekleyin.',
+    conflictToast: 'Program başka bir yerde değiştirildi — en son veriler yeniden yükleniyor, lütfen tekrar deneyin.',
+    tokenRejectedToast: 'Erişim anahtarı reddedildi — bu depoya yazma erişimi olduğunu kontrol edin.',
+    saveFailedToast: (status) => `Kaydetme başarısız oldu (HTTP ${status}).`,
+    savedToast: 'Rezervasyon kaydedildi.',
+    cancelledToast: 'Rezervasyon iptal edildi.',
+    forgottenToast: 'Erişim anahtarı bu cihazda unutuldu.'
+  },
+  en: {
+    pageTitle: 'Court Schedule',
+    headerTitle: 'Court Schedule',
+    admin: 'Admin',
+    langBtn: 'TR',
+    adminTitle: 'Admin access',
+    adminHint: 'A GitHub personal access token is required to add or cancel reservations (viewing the schedule works for everyone without one). Use a <strong>fine-grained token</strong> scoped only to the <code>tennis-court-reservation</code> repo with <strong>Contents: Read and write</strong> permission. Treat it like a password.',
+    lblToken: 'Personal access token',
+    show: 'Show',
+    hide: 'Hide',
+    rememberToken: 'Remember this token on this device (skip on shared/public computers)',
+    saveToken: 'Save token',
+    clearToken: 'Forget token',
+    statusNotConnected: 'Not connected.',
+    prevWeek: 'Previous week',
+    nextWeek: 'Next week',
+    thisWeek: 'This week',
+    jumpTitle: 'Jump to a date',
+    newReservation: 'New reservation',
+    name: 'Name',
+    phone: 'Phone',
+    optional: '(optional)',
+    notes: 'Notes',
+    cancel: 'Cancel',
+    saveReservation: 'Save reservation',
+    reservationDetail: 'Reservation',
+    close: 'Close',
+    cancelReservation: 'Cancel reservation',
+    courtLabel: 'Court',
+    dateLabel: 'Date',
+    timeLabel: 'Time',
+    nameLabel: 'Name',
+    phoneLabel: 'Phone',
+    notesLabel: 'Notes',
+    available: 'Available',
+    weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    locale: 'en-US',
+    loadingSchedule: 'Loading schedule…',
+    fileNotFoundToken: 'Data file not found yet — save a reservation to create it.',
+    fileNotFoundNoToken: 'Data file not found in the repo yet.',
+    authError: 'Token rejected or missing repo access. Check the token in Admin.',
+    loadError: (status) => `Could not load schedule (HTTP ${status}).`,
+    jsonError: 'Data file exists but is not valid JSON — check it in the repo.',
+    connectedWrite: 'Connected — you can add and cancel reservations.',
+    connectedRead: 'Connected (read-only — add a token in Admin to edit).',
+    addTokenToast: 'Add a personal access token in Admin to save changes.',
+    conflictToast: 'The schedule changed elsewhere — reloading latest data, please retry.',
+    tokenRejectedToast: 'Token was rejected — check it has write access to this repo.',
+    saveFailedToast: (status) => `Save failed (HTTP ${status}).`,
+    savedToast: 'Reservation saved.',
+    cancelledToast: 'Reservation cancelled.',
+    forgottenToast: 'Token forgotten on this device.'
+  }
+};
 
 /* =========================================================================
    State
    ========================================================================= */
 const config = DEFAULT_CONFIG;
-let token = null;              // GitHub personal access token, browser-side only
-let reservations = [];         // array of reservation objects
-let fileSha = null;            // current sha of the data file, needed to write
+let currentLang = localStorage.getItem(LS_LANG) || 'tr';
+let token = null;
+let reservations = [];
+let fileSha = null;
 let selectedCourt = COURTS[0];
-let selectedWeekStart = null;  // Monday of the visible week, "YYYY-MM-DD"
-let pendingSlot = null;        // { court, date, time } awaiting booking submit
-let pendingReservationId = null; // reservation awaiting cancellation
+let selectedWeekStart = null;
+let selectedDayIndex = 0;
+let pendingSlot = null;
+let pendingReservationId = null;
+let lastStatusKind = null;
+let lastStatusKey = null;
 
 /* =========================================================================
-   Date helpers — all pure calendar math (no real-world timezone involved),
-   so "today" always means the visitor's local calendar day, and adding/
-   subtracting days never drifts because of UTC conversion.
+   Date helpers
    ========================================================================= */
 function todayStr() {
   const d = new Date();
@@ -51,23 +160,29 @@ function addDays(dateStr, delta) {
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
 }
 
-// Monday of the week containing dateStr
 function getWeekStart(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
-  const dow = dt.getUTCDay(); // 0=Sun..6=Sat
+  const dow = dt.getUTCDay();
   const diffToMonday = (dow === 0) ? -6 : 1 - dow;
   dt.setUTCDate(dt.getUTCDate() + diffToMonday);
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
 }
 
+function weekDates(weekStart) {
+  const out = [];
+  for (let i = 0; i < 7; i++) out.push(addDays(weekStart, i));
+  return out;
+}
+
 function formatWeekRange(weekStart) {
+  const t = I18N[currentLang];
   const start = weekStart;
   const end = addDays(weekStart, 6);
   const startD = new Date(start + 'T00:00:00Z');
   const endD = new Date(end + 'T00:00:00Z');
-  const startStr = startD.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  const endStr = endD.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  const startStr = startD.toLocaleDateString(t.locale, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const endStr = endD.toLocaleDateString(t.locale, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   return `${startStr} – ${endStr}`;
 }
 
@@ -86,7 +201,11 @@ function buildSlots() {
   return slots;
 }
 
-// UTF-8 safe base64 encode/decode (GitHub Contents API stores files as base64)
+function resetDayIndexForWeek() {
+  const idx = weekDates(selectedWeekStart).indexOf(todayStr());
+  selectedDayIndex = idx >= 0 ? idx : 0;
+}
+
 function utf8ToBase64(str) {
   const bytes = new TextEncoder().encode(str);
   let binary = '';
@@ -100,7 +219,12 @@ function base64ToUtf8(b64) {
   return new TextDecoder().decode(bytes);
 }
 
-function showToast(message, isError) {
+function showToast(messageKeyOrText, isError, param) {
+  const t = I18N[currentLang];
+  let message = t[messageKeyOrText];
+  if (typeof message === 'function') message = message(param);
+  if (!message) message = messageKeyOrText;
+
   const el = document.getElementById('toast');
   el.textContent = message;
   el.classList.toggle('err', !!isError);
@@ -109,7 +233,14 @@ function showToast(message, isError) {
   showToast._t = setTimeout(() => el.classList.add('hidden'), 3500);
 }
 
-function setStatus(message, kind) {
+function setStatus(statusKey, kind, param) {
+  lastStatusKey = statusKey;
+  lastStatusKind = kind;
+  const t = I18N[currentLang];
+  let message = t[statusKey];
+  if (typeof message === 'function') message = message(param);
+  if (!message) message = statusKey;
+
   const el = document.getElementById('connectionStatus');
   el.textContent = message;
   el.classList.remove('ok', 'err');
@@ -117,7 +248,7 @@ function setStatus(message, kind) {
 }
 
 /* =========================================================================
-   Token persistence (local to this browser only)
+   Token persistence
    ========================================================================= */
 function loadToken() {
   return sessionStorage.getItem(SS_TOKEN) || localStorage.getItem(LS_TOKEN) || null;
@@ -153,26 +284,21 @@ function apiHeaders() {
 }
 
 async function fetchReservations() {
-  setStatus('Loading schedule…');
+  setStatus('loadingSchedule');
   const res = await fetch(contentsUrl(), { headers: apiHeaders() });
 
   if (res.status === 404) {
     reservations = [];
     fileSha = null;
-    setStatus(
-      token
-        ? 'Data file not found yet — save a reservation to create it.'
-        : 'Data file not found in the repo yet.',
-      'err'
-    );
+    setStatus(token ? 'fileNotFoundToken' : 'fileNotFoundNoToken', 'err');
     return;
   }
   if (res.status === 401 || res.status === 403) {
-    setStatus('Token rejected or missing repo access. Check the token in Admin.', 'err');
+    setStatus('authError', 'err');
     throw new Error('auth');
   }
   if (!res.ok) {
-    setStatus(`Could not load schedule (HTTP ${res.status}).`, 'err');
+    setStatus('loadError', 'err', res.status);
     throw new Error('load-failed');
   }
 
@@ -183,18 +309,15 @@ async function fetchReservations() {
     reservations = Array.isArray(parsed.reservations) ? parsed.reservations : [];
   } catch (e) {
     reservations = [];
-    setStatus('Data file exists but is not valid JSON — check it in the repo.', 'err');
+    setStatus('jsonError', 'err');
     return;
   }
-  setStatus(
-    token ? 'Connected — you can add and cancel reservations.' : 'Connected (read-only — add a token in Admin to edit).',
-    'ok'
-  );
+  setStatus(token ? 'connectedWrite' : 'connectedRead', 'ok');
 }
 
 async function commitReservations(commitMessage) {
   if (!token) {
-    showToast('Add a personal access token in Admin to save changes.', true);
+    showToast('addTokenToast', true);
     return false;
   }
   const body = {
@@ -211,17 +334,17 @@ async function commitReservations(commitMessage) {
   });
 
   if (res.status === 409) {
-    showToast('The schedule changed elsewhere — reloading latest data, please retry.', true);
+    showToast('conflictToast', true);
     await fetchReservations();
     renderAll();
     return false;
   }
   if (res.status === 401 || res.status === 403) {
-    showToast('Token was rejected — check it has write access to this repo.', true);
+    showToast('tokenRejectedToast', true);
     return false;
   }
   if (!res.ok) {
-    showToast(`Save failed (HTTP ${res.status}).`, true);
+    showToast('saveFailedToast', true, res.status);
     return false;
   }
 
@@ -231,12 +354,56 @@ async function commitReservations(commitMessage) {
 }
 
 /* =========================================================================
+   UI Translation Update
+   ========================================================================= */
+function updateDOMTranslations() {
+  const t = I18N[currentLang];
+  document.documentElement.lang = currentLang;
+  document.getElementById('pageTitle').textContent = t.pageTitle;
+  document.getElementById('headerTitle').innerHTML = `<span class="mark">●</span> ${t.headerTitle}`;
+  document.getElementById('langToggle').textContent = t.langBtn;
+  document.getElementById('settingsToggle').textContent = t.admin;
+
+  document.getElementById('adminTitle').textContent = t.adminTitle;
+  document.getElementById('adminHint').innerHTML = t.adminHint;
+  document.getElementById('lblToken').childNodes[0].nodeValue = t.lblToken + ' ';
+
+  const pwdInput = document.getElementById('cfgToken');
+  const visBtn = document.getElementById('toggleTokenVisibility');
+  visBtn.textContent = pwdInput.type === 'text' ? t.hide : t.show;
+
+  document.getElementById('txtRemember').textContent = t.rememberToken;
+  document.getElementById('saveTokenBtn').textContent = t.saveToken;
+  document.getElementById('clearTokenBtn').textContent = t.clearToken;
+
+  document.getElementById('prevWeek').setAttribute('aria-label', t.prevWeek);
+  document.getElementById('nextWeek').setAttribute('aria-label', t.nextWeek);
+  document.getElementById('thisWeekBtn').textContent = t.thisWeek;
+  document.getElementById('jumpDate').title = t.jumpTitle;
+
+  document.getElementById('bookingTitle').textContent = t.newReservation;
+  document.getElementById('lblBkName').childNodes[0].nodeValue = t.name + ' ';
+  document.getElementById('lblBkPhone').childNodes[0].nodeValue = t.phone + ' ';
+  document.getElementById('lblBkNotes').childNodes[0].nodeValue = t.notes + ' ';
+
+  document.querySelectorAll('.optional').forEach(el => el.textContent = t.optional);
+  document.getElementById('bookingCancel').textContent = t.cancel;
+  document.getElementById('bookingSubmit').textContent = t.saveReservation;
+
+  document.getElementById('detailTitle').textContent = t.reservationDetail;
+  document.getElementById('detailClose').textContent = t.close;
+  document.getElementById('detailCancel').textContent = t.cancelReservation;
+
+  if (lastStatusKey) setStatus(lastStatusKey, lastStatusKind);
+}
+
+/* =========================================================================
    Rendering
    ========================================================================= */
 function renderCourtTabs() {
   const el = document.getElementById('courtTabs');
   el.innerHTML = '';
-  if (COURTS.length <= 1) return; // no tabs needed for a single court
+  if (COURTS.length <= 1) return;
   COURTS.forEach(court => {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -251,19 +418,33 @@ function findReservation(court, date, time) {
   return reservations.find(r => r.court === court && r.date === date && r.startTime === time);
 }
 
+function makeCellButton(existing, isPast, onClick) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'cell-btn ' + (existing ? 'booked' : 'available');
+  if (existing) {
+    btn.textContent = existing.customerName;
+    btn.title = existing.customerName + (existing.phone ? ' · ' + existing.phone : '');
+  }
+  if (isPast) {
+    btn.disabled = true;
+  } else {
+    btn.addEventListener('click', onClick);
+  }
+  return btn;
+}
+
 function renderWeekGrid() {
+  const t = I18N[currentLang];
   const container = document.getElementById('scheduleGrid');
   container.innerHTML = '';
   const today = todayStr();
   const slots = buildSlots();
-
-  const dayDates = [];
-  for (let i = 0; i < 7; i++) dayDates.push(addDays(selectedWeekStart, i));
+  const dayDates = weekDates(selectedWeekStart);
 
   const table = document.createElement('table');
   table.className = 'week-table';
 
-  // Header row: corner cell + one cell per day
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
   const corner = document.createElement('th');
@@ -274,13 +455,12 @@ function renderWeekGrid() {
     const th = document.createElement('th');
     th.className = 'day-head' + (dateStr === today ? ' today' : '');
     const [, m, d] = dateStr.split('-');
-    th.innerHTML = `<span class="wd">${WEEKDAY_LABELS[i]}</span><span class="dm">${d}/${m}</span>`;
+    th.innerHTML = `<span class="wd">${t.weekdays[i]}</span><span class="dm">${d}/${m}</span>`;
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
   table.appendChild(thead);
 
-  // Body: one row per time slot, one cell per day
   const tbody = document.createElement('tbody');
   slots.forEach(time => {
     const tr = document.createElement('tr');
@@ -293,17 +473,10 @@ function renderWeekGrid() {
       const existing = findReservation(selectedCourt, dateStr, time);
       const isPast = dateStr < today;
       const td = document.createElement('td');
-      td.className = 'cell ' + (existing ? 'booked' : 'available') + (isPast ? ' disabled' : '');
-      if (existing) {
-        td.textContent = existing.customerName;
-        td.title = existing.customerName + (existing.phone ? ' · ' + existing.phone : '');
-      }
-      if (!isPast) {
-        td.addEventListener('click', () => {
-          if (existing) openDetail(existing);
-          else openBookingForm(selectedCourt, dateStr, time);
-        });
-      }
+      td.className = 'cell';
+      td.appendChild(makeCellButton(existing, isPast, () => {
+        if (existing) openDetail(existing); else openBookingForm(selectedCourt, dateStr, time);
+      }));
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -312,11 +485,67 @@ function renderWeekGrid() {
   container.appendChild(table);
 }
 
+function renderDayStrip() {
+  const t = I18N[currentLang];
+  const el = document.getElementById('dayStrip');
+  if (!el) return;
+  el.innerHTML = '';
+  const today = todayStr();
+  const dayDates = weekDates(selectedWeekStart);
+
+  dayDates.forEach((dateStr, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'day-pill' + (i === selectedDayIndex ? ' active' : '') + (dateStr === today ? ' today' : '');
+    const [, m, d] = dateStr.split('-');
+    btn.innerHTML = `<span class="wd">${t.weekdays[i]}</span><span class="dm">${d}/${m}</span><span class="dot"></span>`;
+    btn.addEventListener('click', () => {
+      selectedDayIndex = i;
+      renderDayStrip();
+      renderDayList();
+    });
+    el.appendChild(btn);
+  });
+}
+
+function renderDayList() {
+  const t = I18N[currentLang];
+  const el = document.getElementById('dayList');
+  if (!el) return;
+  el.innerHTML = '';
+  const today = todayStr();
+  const dateStr = weekDates(selectedWeekStart)[selectedDayIndex];
+  const isPast = dateStr < today;
+  const slots = buildSlots();
+
+  slots.forEach(time => {
+    const existing = findReservation(selectedCourt, dateStr, time);
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'day-row' + (existing ? ' booked' : '');
+    row.innerHTML = `
+      <span class="status-dot"></span>
+      <span class="time">${time}</span>
+      <span class="name">${existing ? existing.customerName : t.available}</span>
+    `;
+    if (isPast) {
+      row.disabled = true;
+    } else {
+      row.addEventListener('click', () => {
+        if (existing) openDetail(existing); else openBookingForm(selectedCourt, dateStr, time);
+      });
+    }
+    el.appendChild(row);
+  });
+}
+
 function renderAll() {
   document.getElementById('weekRangeLabel').textContent = formatWeekRange(selectedWeekStart);
   document.getElementById('jumpDate').value = selectedWeekStart;
   renderCourtTabs();
   renderWeekGrid();
+  renderDayStrip();
+  renderDayList();
 }
 
 /* =========================================================================
@@ -355,11 +584,11 @@ async function submitBooking(e) {
   reservations.push(reservation);
   const ok = await commitReservations(`Book ${reservation.court} ${reservation.date} ${reservation.startTime} (${name})`);
   if (ok) {
-    showToast('Reservation saved.');
+    showToast('savedToast');
     closeBookingForm();
     renderAll();
   } else {
-    reservations = reservations.filter(r => r.id !== reservation.id); // roll back
+    reservations = reservations.filter(r => r.id !== reservation.id);
   }
 }
 
@@ -367,16 +596,17 @@ async function submitBooking(e) {
    Reservation detail / cancel
    ========================================================================= */
 function openDetail(reservation) {
+  const t = I18N[currentLang];
   pendingReservationId = reservation.id;
   const dl = document.getElementById('detailFields');
   dl.innerHTML = '';
   const rows = [
-    ['Court', reservation.court],
-    ['Date', reservation.date],
-    ['Time', reservation.startTime],
-    ['Name', reservation.customerName],
-    ['Phone', reservation.phone || '—'],
-    ['Notes', reservation.notes || '—'],
+    [t.courtLabel, reservation.court],
+    [t.dateLabel, reservation.date],
+    [t.timeLabel, reservation.startTime],
+    [t.nameLabel, reservation.customerName],
+    [t.phoneLabel, reservation.phone || '—'],
+    [t.notesLabel, reservation.notes || '—'],
   ];
   rows.forEach(([label, value]) => {
     const dt = document.createElement('dt'); dt.textContent = label;
@@ -402,28 +632,36 @@ async function cancelReservation() {
     `Cancel ${removed.court} ${removed.date} ${removed.startTime} (${removed.customerName})`
   );
   if (ok) {
-    showToast('Reservation cancelled.');
+    showToast('cancelledToast');
     closeDetail();
     renderAll();
   } else {
-    reservations = backup; // roll back
+    reservations = backup;
   }
 }
 
 /* =========================================================================
-   Admin panel wiring
+   Wiring & Listeners
    ========================================================================= */
 function wireSettingsPanel() {
   document.getElementById('settingsToggle').addEventListener('click', () => {
     document.getElementById('settingsPanel').classList.toggle('hidden');
   });
 
+  document.getElementById('langToggle').addEventListener('click', () => {
+    currentLang = currentLang === 'tr' ? 'en' : 'tr';
+    localStorage.setItem(LS_LANG, currentLang);
+    updateDOMTranslations();
+    renderAll();
+  });
+
   document.getElementById('toggleTokenVisibility').addEventListener('click', () => {
+    const t = I18N[currentLang];
     const input = document.getElementById('cfgToken');
     const btn = document.getElementById('toggleTokenVisibility');
     const showing = input.type === 'text';
     input.type = showing ? 'password' : 'text';
-    btn.textContent = showing ? 'Show' : 'Hide';
+    btn.textContent = showing ? t.show : t.hide;
   });
 
   document.getElementById('saveTokenBtn').addEventListener('click', async () => {
@@ -433,7 +671,8 @@ function wireSettingsPanel() {
     token = val;
     saveToken(val, remember);
     document.getElementById('cfgToken').value = '';
-    document.getElementById('toggleTokenVisibility').textContent = 'Show';
+    const t = I18N[currentLang];
+    document.getElementById('toggleTokenVisibility').textContent = t.show;
     document.getElementById('cfgToken').type = 'password';
     await fetchReservations();
     renderAll();
@@ -441,23 +680,31 @@ function wireSettingsPanel() {
 
   document.getElementById('clearTokenBtn').addEventListener('click', () => {
     forgetToken();
-    setStatus('Token forgotten on this device.');
+    setStatus('forgottenToast');
   });
 }
 
 function wireScheduleControls() {
   document.getElementById('prevWeek').addEventListener('click', () => {
-    selectedWeekStart = addDays(selectedWeekStart, -7); renderAll();
+    selectedWeekStart = addDays(selectedWeekStart, -7);
+    resetDayIndexForWeek();
+    renderAll();
   });
   document.getElementById('nextWeek').addEventListener('click', () => {
-    selectedWeekStart = addDays(selectedWeekStart, 7); renderAll();
+    selectedWeekStart = addDays(selectedWeekStart, 7);
+    resetDayIndexForWeek();
+    renderAll();
   });
   document.getElementById('thisWeekBtn').addEventListener('click', () => {
-    selectedWeekStart = getWeekStart(todayStr()); renderAll();
+    selectedWeekStart = getWeekStart(todayStr());
+    resetDayIndexForWeek();
+    renderAll();
   });
   document.getElementById('jumpDate').addEventListener('change', (e) => {
     if (!e.target.value) return;
-    selectedWeekStart = getWeekStart(e.target.value); renderAll();
+    selectedWeekStart = getWeekStart(e.target.value);
+    resetDayIndexForWeek();
+    renderAll();
   });
 
   document.getElementById('bookingForm').addEventListener('submit', submitBooking);
@@ -473,14 +720,16 @@ function wireScheduleControls() {
 async function init() {
   token = loadToken();
   selectedWeekStart = getWeekStart(todayStr());
+  resetDayIndexForWeek();
 
+  updateDOMTranslations();
   wireSettingsPanel();
   wireScheduleControls();
 
   try {
     await fetchReservations();
   } catch (e) {
-    // status already set by fetchReservations
+    // status handled inside fetchReservations
   }
   renderAll();
 }

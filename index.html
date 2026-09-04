@@ -1,45 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Court Schedule</title>
+<title id="pageTitle">Saha Programı</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <header class="topbar">
     <div class="topbar-inner">
-      <h1><span class="mark">●</span> Court Schedule</h1>
-      <button id="settingsToggle" class="btn-ghost" type="button">Admin</button>
+      <h1 id="headerTitle"><span class="mark">●</span> Saha Programı</h1>
+      <div class="topbar-actions">
+        <button id="langToggle" class="btn-ghost" type="button">EN</button>
+        <button id="settingsToggle" class="btn-ghost" type="button">Yönetici</button>
+      </div>
     </div>
   </header>
 
   <section id="settingsPanel" class="settings-panel hidden">
     <div class="settings-inner">
-      <h2>Admin access</h2>
-      <p class="hint">
-        A GitHub personal access token is required to add or cancel reservations (viewing the
-        schedule works for everyone without one). Use a <strong>fine-grained token</strong> scoped
-        only to the <code>tennis-court-reservation</code> repo with <strong>Contents: Read and
-        write</strong> permission. Treat it like a password.
+      <h2 id="adminTitle">Yönetici Erişimi</h2>
+      <p id="adminHint" class="hint">
+        Rezervasyon eklemek veya iptal etmek için bir GitHub kişisel erişim anahtarı (PAT) gereklidir (programı görüntülemek herkes için çalışır). Yalnızca <code>tennis-court-reservation</code> deposu için <strong>Contents: Read and write</strong> iznine sahip <strong>fine-grained token</strong> kullanın. Bunu bir şifre gibi koruyun.
       </p>
-      <label>Personal access token
+      <label id="lblToken">Kişisel erişim anahtarı
         <div class="token-row">
           <input id="cfgToken" type="password" placeholder="github_pat_...">
-          <button id="toggleTokenVisibility" class="btn-ghost small" type="button">Show</button>
+          <button id="toggleTokenVisibility" class="btn-ghost small" type="button">Göster</button>
         </div>
       </label>
-      <label class="checkbox-row">
+      <label id="lblRemember" class="checkbox-row">
         <input id="cfgRemember" type="checkbox">
-        Remember this token on this device (skip on shared/public computers)
+        <span id="txtRemember">Bu anahtarı bu cihazda hatırla (ortak/açık bilgisayarlarda işaretlemeyin)</span>
       </label>
       <div class="settings-actions">
-        <button id="saveTokenBtn" class="btn-primary" type="button">Save token</button>
-        <button id="clearTokenBtn" class="btn-ghost" type="button">Forget token</button>
+        <button id="saveTokenBtn" class="btn-primary" type="button">Anahtarı kaydet</button>
+        <button id="clearTokenBtn" class="btn-ghost" type="button">Anahtarı unut</button>
       </div>
 
-      <p id="connectionStatus" class="status-line">Not connected.</p>
+      <p id="connectionStatus" class="status-line">Bağlantı yok.</p>
     </div>
   </section>
 
@@ -47,11 +47,11 @@
     <div class="court-tabs" id="courtTabs"></div>
 
     <div class="week-nav">
-      <button id="prevWeek" class="btn-ghost" type="button" aria-label="Previous week">&larr;</button>
+      <button id="prevWeek" class="btn-ghost" type="button" aria-label="Önceki hafta">&larr;</button>
       <span id="weekRangeLabel" class="week-range"></span>
-      <button id="nextWeek" class="btn-ghost" type="button" aria-label="Next week">&rarr;</button>
-      <button id="thisWeekBtn" class="btn-ghost" type="button">This week</button>
-      <input id="jumpDate" type="date" title="Jump to a date">
+      <button id="nextWeek" class="btn-ghost" type="button" aria-label="Sonraki hafta">&rarr;</button>
+      <button id="thisWeekBtn" class="btn-ghost" type="button">Bu hafta</button>
+      <input id="jumpDate" type="date" title="Tarihe git">
     </div>
 
     <div class="table-scroll">
@@ -59,34 +59,34 @@
     </div>
   </main>
 
-  <!-- Booking form, shown over the page when a free slot is clicked -->
+  <!-- Rezervasyon formu -->
   <div id="bookingOverlay" class="overlay hidden">
     <form id="bookingForm" class="booking-card">
-      <h2 id="bookingTitle">New reservation</h2>
-      <label>Name
+      <h2 id="bookingTitle">Yeni rezervasyon</h2>
+      <label id="lblBkName">İsim
         <input id="bkName" type="text" required>
       </label>
-      <label>Phone <span class="optional">(optional)</span>
+      <label id="lblBkPhone">Telefon <span class="optional">(isteğe bağlı)</span>
         <input id="bkPhone" type="tel">
       </label>
-      <label>Notes <span class="optional">(optional)</span>
+      <label id="lblBkNotes">Notlar <span class="optional">(isteğe bağlı)</span>
         <textarea id="bkNotes" rows="2"></textarea>
       </label>
       <div class="booking-actions">
-        <button type="button" id="bookingCancel" class="btn-ghost">Cancel</button>
-        <button type="submit" id="bookingSubmit" class="btn-primary">Save reservation</button>
+        <button type="button" id="bookingCancel" class="btn-ghost">İptal</button>
+        <button type="submit" id="bookingSubmit" class="btn-primary">Rezervasyonu kaydet</button>
       </div>
     </form>
   </div>
 
-  <!-- Reservation detail / cancel panel, shown when a booked slot is clicked -->
+  <!-- Rezervasyon detay paneli -->
   <div id="detailOverlay" class="overlay hidden">
     <div class="booking-card">
-      <h2>Reservation</h2>
+      <h2 id="detailTitle">Rezervasyon</h2>
       <dl id="detailFields" class="detail-fields"></dl>
       <div class="booking-actions">
-        <button type="button" id="detailClose" class="btn-ghost">Close</button>
-        <button type="button" id="detailCancel" class="btn-danger">Cancel reservation</button>
+        <button type="button" id="detailClose" class="btn-ghost">Kapat</button>
+        <button type="button" id="detailCancel" class="btn-danger">Rezervasyonu iptal et</button>
       </div>
     </div>
   </div>
