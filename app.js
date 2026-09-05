@@ -72,7 +72,16 @@ const I18N = {
     saveFailedToast: (status) => `Kaydetme başarısız oldu (HTTP ${status}).`,
     savedToast: 'Rezervasyon kaydedildi.',
     cancelledToast: 'Rezervasyon iptal edildi.',
-    forgottenToast: 'Erişim anahtarı bu cihazda unutuldu.'
+    forgottenToast: 'Erişim anahtarı bu cihazda unutuldu.',
+    weeklyCourseLabel: 'Haftalık kurs (her hafta tekrarlanır)',
+    courseNameLabel: 'Kurs adı',
+    descriptionLabel: 'Açıklama',
+    dayLabel: 'Gün',
+    sinceLabel: 'Tekrar başlangıcı',
+    courseDetail: 'Haftalık kurs',
+    deleteCourse: 'Kursu sil',
+    courseSavedToast: 'Haftalık kurs kaydedildi.',
+    courseDeletedToast: 'Kurs silindi.'
   },
   en: {
     pageTitle: 'Court Schedule',
@@ -125,7 +134,16 @@ const I18N = {
     saveFailedToast: (status) => `Save failed (HTTP ${status}).`,
     savedToast: 'Reservation saved.',
     cancelledToast: 'Reservation cancelled.',
-    forgottenToast: 'Token forgotten on this device.'
+    forgottenToast: 'Token forgotten on this device.',
+    weeklyCourseLabel: 'Weekly course (repeats every week)',
+    courseNameLabel: 'Course name',
+    descriptionLabel: 'Description',
+    dayLabel: 'Day',
+    sinceLabel: 'Repeats since',
+    courseDetail: 'Weekly course',
+    deleteCourse: 'Delete course',
+    courseSavedToast: 'Weekly course saved.',
+    courseDeletedToast: 'Course deleted.'
   }
 };
 
@@ -136,12 +154,14 @@ const config = DEFAULT_CONFIG;
 let currentLang = localStorage.getItem(LS_LANG) || 'tr';
 let token = null;
 let reservations = [];
+let courses = [];              // weekly-recurring course definitions (see findCourse)
 let fileSha = null;
 let selectedCourt = COURTS[0];
 let selectedWeekStart = null;
 let selectedDayIndex = 0;
 let pendingSlot = null;
 let pendingReservationId = null;
+let pendingOccupantKind = null; // 'booking' or 'course' — which kind the open detail panel refers to
 let lastStatusKind = null;
 let lastStatusKey = null;
 
@@ -173,6 +193,21 @@ function weekDates(weekStart) {
   const out = [];
   for (let i = 0; i < 7; i++) out.push(addDays(weekStart, i));
   return out;
+}
+
+// Monday-first weekday index (0=Mon..6=Sun) for a date string. Stored on
+// courses as a plain number — never a translated day name — so a course
+// created in one language still matches correctly after switching languages.
+function weekdayIndex(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=Sun..6=Sat
+  return dow === 0 ? 6 : dow - 1;
+}
+
+function formatDateLong(dateStr) {
+  const t = I18N[currentLang];
+  const d = new Date(dateStr + 'T00:00:00Z');
+  return d.toLocaleDateString(t.locale, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 function formatWeekRange(weekStart) {
@@ -307,8 +342,10 @@ async function fetchReservations() {
   try {
     const parsed = JSON.parse(base64ToUtf8(data.content));
     reservations = Array.isArray(parsed.reservations) ? parsed.reservations : [];
+    courses = Array.isArray(parsed.courses) ? parsed.courses : [];
   } catch (e) {
     reservations = [];
+    courses = [];
     setStatus('jsonError', 'err');
     return;
   }
@@ -322,7 +359,7 @@ async function commitReservations(commitMessage) {
   }
   const body = {
     message: commitMessage,
-    content: utf8ToBase64(JSON.stringify({ reservations }, null, 2)),
+    content: utf8ToBase64(JSON.stringify({ reservations, courses }, null, 2)),
     branch: config.branch,
   };
   if (fileSha) body.sha = fileSha;
@@ -382,7 +419,9 @@ function updateDOMTranslations() {
   document.getElementById('jumpDate').title = t.jumpTitle;
 
   document.getElementById('bookingTitle').textContent = t.newReservation;
-  document.getElementById('lblBkName').childNodes[0].nodeValue = t.name + ' ';
+  document.getElementById('txtBkIsCourse').textContent = t.weeklyCourseLabel;
+  const isCourseChecked = document.getElementById('bkIsCourse').checked;
+  document.getElementById('lblBkName').childNodes[0].nodeValue = (isCourseChecked ? t.courseNameLabel : t.name) + ' ';
   document.getElementById('lblBkPhone').childNodes[0].nodeValue = t.phone + ' ';
   document.getElementById('lblBkNotes').childNodes[0].nodeValue = t.notes + ' ';
 
@@ -390,9 +429,9 @@ function updateDOMTranslations() {
   document.getElementById('bookingCancel').textContent = t.cancel;
   document.getElementById('bookingSubmit').textContent = t.saveReservation;
 
-  document.getElementById('detailTitle').textContent = t.reservationDetail;
+  document.getElementById('detailTitle').textContent = pendingOccupantKind === 'course' ? t.courseDetail : t.reservationDetail;
   document.getElementById('detailClose').textContent = t.close;
-  document.getElementById('detailCancel').textContent = t.cancelReservation;
+  document.getElementById('detailCancel').textContent = pendingOccupantKind === 'course' ? t.deleteCourse : t.cancelReservation;
 
   if (lastStatusKey) setStatus(lastStatusKey, lastStatusKind);
 }
@@ -418,13 +457,33 @@ function findReservation(court, date, time) {
   return reservations.find(r => r.court === court && r.date === date && r.startTime === time);
 }
 
-function makeCellButton(existing, isPast, onClick) {
+// A course occupies every week's matching slot from its startDate onward.
+function findCourse(court, date, time) {
+  const idx = weekdayIndex(date);
+  return courses.find(c => c.court === court && c.startTime === time && c.dayOfWeek === idx && date >= c.startDate);
+}
+
+// One-off bookings take precedence if a slot somehow matches both (shouldn't
+// normally happen since the UI only lets you book truly open slots).
+function findOccupant(court, date, time) {
+  const booking = findReservation(court, date, time);
+  if (booking) return { kind: 'booking', data: booking };
+  const course = findCourse(court, date, time);
+  if (course) return { kind: 'course', data: course };
+  return null;
+}
+
+function makeCellButton(occupant, isPast, onClick) {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'cell-btn ' + (existing ? 'booked' : 'available');
-  if (existing) {
-    btn.textContent = existing.customerName;
-    btn.title = existing.customerName + (existing.phone ? ' · ' + existing.phone : '');
+  const kind = occupant ? occupant.kind : null;
+  btn.className = 'cell-btn ' + (kind === 'booking' ? 'booked' : kind === 'course' ? 'course' : 'available');
+  if (kind === 'booking') {
+    btn.textContent = occupant.data.customerName;
+    btn.title = occupant.data.customerName + (occupant.data.phone ? ' · ' + occupant.data.phone : '');
+  } else if (kind === 'course') {
+    btn.textContent = '↻ ' + occupant.data.courseName;
+    btn.title = occupant.data.courseName + (occupant.data.description ? ' · ' + occupant.data.description : '');
   }
   if (isPast) {
     btn.disabled = true;
@@ -470,12 +529,12 @@ function renderWeekGrid() {
     tr.appendChild(timeHead);
 
     dayDates.forEach(dateStr => {
-      const existing = findReservation(selectedCourt, dateStr, time);
+      const occupant = findOccupant(selectedCourt, dateStr, time);
       const isPast = dateStr < today;
       const td = document.createElement('td');
       td.className = 'cell';
-      td.appendChild(makeCellButton(existing, isPast, () => {
-        if (existing) openDetail(existing); else openBookingForm(selectedCourt, dateStr, time);
+      td.appendChild(makeCellButton(occupant, isPast, () => {
+        if (occupant) openDetail(occupant); else openBookingForm(selectedCourt, dateStr, time);
       }));
       tr.appendChild(td);
     });
@@ -519,20 +578,24 @@ function renderDayList() {
   const slots = buildSlots();
 
   slots.forEach(time => {
-    const existing = findReservation(selectedCourt, dateStr, time);
+    const occupant = findOccupant(selectedCourt, dateStr, time);
+    const kind = occupant ? occupant.kind : null;
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'day-row' + (existing ? ' booked' : '');
+    row.className = 'day-row' + (kind === 'booking' ? ' booked' : kind === 'course' ? ' course' : '');
+    const label = kind === 'booking' ? occupant.data.customerName
+      : kind === 'course' ? ('↻ ' + occupant.data.courseName)
+      : t.available;
     row.innerHTML = `
       <span class="status-dot"></span>
       <span class="time">${time}</span>
-      <span class="name">${existing ? existing.customerName : t.available}</span>
+      <span class="name">${label}</span>
     `;
     if (isPast) {
       row.disabled = true;
     } else {
       row.addEventListener('click', () => {
-        if (existing) openDetail(existing); else openBookingForm(selectedCourt, dateStr, time);
+        if (occupant) openDetail(occupant); else openBookingForm(selectedCourt, dateStr, time);
       });
     }
     el.appendChild(row);
@@ -552,11 +615,15 @@ function renderAll() {
    Booking form
    ========================================================================= */
 function openBookingForm(court, date, time) {
+  const t = I18N[currentLang];
   pendingSlot = { court, date, time };
   document.getElementById('bookingTitle').textContent = `${court} · ${date} · ${time}`;
   document.getElementById('bkName').value = '';
   document.getElementById('bkPhone').value = '';
   document.getElementById('bkNotes').value = '';
+  document.getElementById('bkIsCourse').checked = false;
+  document.getElementById('lblBkPhone').classList.remove('hidden');
+  document.getElementById('lblBkName').childNodes[0].nodeValue = t.name + ' ';
   document.getElementById('bookingOverlay').classList.remove('hidden');
   document.getElementById('bkName').focus();
 }
@@ -570,6 +637,28 @@ async function submitBooking(e) {
   if (!pendingSlot) return;
   const name = document.getElementById('bkName').value.trim();
   if (!name) return;
+
+  if (document.getElementById('bkIsCourse').checked) {
+    const course = {
+      id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+      court: pendingSlot.court,
+      dayOfWeek: weekdayIndex(pendingSlot.date),
+      startTime: pendingSlot.time,
+      courseName: name,
+      description: document.getElementById('bkNotes').value.trim(),
+      startDate: pendingSlot.date,
+    };
+    courses.push(course);
+    const ok = await commitReservations(`Add weekly course ${course.court} ${course.startTime} from ${course.startDate} (${name})`);
+    if (ok) {
+      showToast('courseSavedToast');
+      closeBookingForm();
+      renderAll();
+    } else {
+      courses = courses.filter(c => c.id !== course.id);
+    }
+    return;
+  }
 
   const reservation = {
     id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
@@ -595,19 +684,40 @@ async function submitBooking(e) {
 /* =========================================================================
    Reservation detail / cancel
    ========================================================================= */
-function openDetail(reservation) {
+function openDetail(occupant) {
   const t = I18N[currentLang];
-  pendingReservationId = reservation.id;
+  pendingReservationId = occupant.data.id;
+  pendingOccupantKind = occupant.kind;
   const dl = document.getElementById('detailFields');
   dl.innerHTML = '';
-  const rows = [
-    [t.courtLabel, reservation.court],
-    [t.dateLabel, reservation.date],
-    [t.timeLabel, reservation.startTime],
-    [t.nameLabel, reservation.customerName],
-    [t.phoneLabel, reservation.phone || '—'],
-    [t.notesLabel, reservation.notes || '—'],
-  ];
+
+  let rows;
+  if (occupant.kind === 'course') {
+    const c = occupant.data;
+    rows = [
+      [t.courtLabel, c.court],
+      [t.dayLabel, t.weekdays[c.dayOfWeek]],
+      [t.timeLabel, c.startTime],
+      [t.courseNameLabel, c.courseName],
+      [t.descriptionLabel, c.description || '—'],
+      [t.sinceLabel, formatDateLong(c.startDate)],
+    ];
+    document.getElementById('detailTitle').textContent = t.courseDetail;
+    document.getElementById('detailCancel').textContent = t.deleteCourse;
+  } else {
+    const r = occupant.data;
+    rows = [
+      [t.courtLabel, r.court],
+      [t.dateLabel, r.date],
+      [t.timeLabel, r.startTime],
+      [t.nameLabel, r.customerName],
+      [t.phoneLabel, r.phone || '—'],
+      [t.notesLabel, r.notes || '—'],
+    ];
+    document.getElementById('detailTitle').textContent = t.reservationDetail;
+    document.getElementById('detailCancel').textContent = t.cancelReservation;
+  }
+
   rows.forEach(([label, value]) => {
     const dt = document.createElement('dt'); dt.textContent = label;
     const dd = document.createElement('dd'); dd.textContent = value;
@@ -618,12 +728,29 @@ function openDetail(reservation) {
 }
 function closeDetail() {
   pendingReservationId = null;
+  pendingOccupantKind = null;
   document.getElementById('detailOverlay').classList.add('hidden');
 }
 
 async function cancelReservation() {
   if (!pendingReservationId) return;
   const id = pendingReservationId;
+
+  if (pendingOccupantKind === 'course') {
+    const removed = courses.find(c => c.id === id);
+    const backup = courses;
+    courses = courses.filter(c => c.id !== id);
+    const ok = await commitReservations(`Delete weekly course ${removed.court} ${removed.startTime} (${removed.courseName})`);
+    if (ok) {
+      showToast('courseDeletedToast');
+      closeDetail();
+      renderAll();
+    } else {
+      courses = backup;
+    }
+    return;
+  }
+
   const removed = reservations.find(r => r.id === id);
   const backup = reservations;
   reservations = reservations.filter(r => r.id !== id);
@@ -705,6 +832,13 @@ function wireScheduleControls() {
     selectedWeekStart = getWeekStart(e.target.value);
     resetDayIndexForWeek();
     renderAll();
+  });
+
+  document.getElementById('bkIsCourse').addEventListener('change', (e) => {
+    const t = I18N[currentLang];
+    const isCourse = e.target.checked;
+    document.getElementById('lblBkPhone').classList.toggle('hidden', isCourse);
+    document.getElementById('lblBkName').childNodes[0].nodeValue = (isCourse ? t.courseNameLabel : t.name) + ' ';
   });
 
   document.getElementById('bookingForm').addEventListener('submit', submitBooking);

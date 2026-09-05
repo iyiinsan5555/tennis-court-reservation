@@ -47,6 +47,49 @@ repo, that's the one place to change.
    **Save token**. Leave "remember on this device" unchecked on
    shared/public computers — otherwise it only lasts that browser tab.
 
+## Weekly courses (recurring reservations)
+
+Besides one-off reservations, you can now mark a slot as a **weekly course** —
+a class or group that repeats on the same day and time every week
+indefinitely (e.g. "Beginner Group, Mondays 18:00").
+
+- When booking an open slot, check **"Weekly course (repeats every week)"**.
+  The phone field disappears (not needed for a course) and the Name field
+  becomes the course name; Notes becomes an optional description.
+- A course is stored once — as a day-of-week + time pattern starting from
+  the date you created it — not as 52 separate entries. It automatically
+  shows as taken on that same weekday/time every week from then on, shown
+  in blue with a ↻ icon so it's visually distinct from a one-off booking.
+- Clicking a course-occupied slot shows its details with a **Delete course**
+  button, which removes the whole recurring pattern (not just one week).
+- Courses never apply to weeks before the date they were created on, so
+  creating a course doesn't retroactively claim past slots.
+
+This is stored as a new `courses` array alongside `reservations` in
+`data/reservations.json`. Existing data files without a `courses` key keep
+working unchanged — it's treated as empty until you add your first course.
+
+```json
+{
+  "reservations": [ ... ],
+  "courses": [
+    {
+      "id": "unique-id",
+      "court": "Ana Kort",
+      "dayOfWeek": 0,
+      "startTime": "18:00",
+      "courseName": "Beginner Group",
+      "description": "",
+      "startDate": "2026-09-07"
+    }
+  ]
+}
+```
+
+`dayOfWeek` is a plain number, Monday = 0 through Sunday = 6 — deliberately
+not a translated day name, so a course still matches correctly after
+switching the site's language.
+
 ## What changed from a plain day view
 
 The schedule now shows a full week (Mon–Sun) at once as a grid — time slots
