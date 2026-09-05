@@ -28,15 +28,5 @@
       "notes": ""
     }
   ],
-  "courses": [
-    {
-      "id": "884280f8-e593-4228-8954-6c05d094340e",
-      "court": "Ana Kort",
-      "dayOfWeek": 1,
-      "startTime": "18:00",
-      "courseName": "Test Kursu - Cumaaliiiii",
-      "description": "hahhahaaa",
-      "startDate": "2026-09-08"
-    }
-  ]
+  "courses": []
 }
