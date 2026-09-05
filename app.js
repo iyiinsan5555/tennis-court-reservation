@@ -2,7 +2,7 @@
    Court Schedule — site settings
    ========================================================================= */
 const COURTS = ["Ana Kort"];
-const OPEN_HOUR = 8;
+const OPEN_HOUR = 14;
 const CLOSE_HOUR = 24;
 const SLOT_MINUTES = 60;
 
