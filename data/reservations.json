@@ -109,5 +109,15 @@
       "notes": ""
     }
   ],
-  "courses": []
+  "courses": [
+    {
+      "id": "9306fdff-49d6-4fca-af90-ef97eafb7a38",
+      "court": "Ana Kort",
+      "dayOfWeek": 0,
+      "startTime": "20:00",
+      "courseName": "Melike özel",
+      "description": "",
+      "startDate": "2026-09-14"
+    }
+  ]
 }
