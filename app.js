@@ -82,7 +82,8 @@ const I18N = {
     deleteCourse: 'Kursu sil',
     courseSavedToast: 'Haftalık kurs kaydedildi.',
     courseDeletedToast: 'Kurs silindi.',
-    slotTakenToast: 'Bu saat az önce dolduruldu — lütfen başka bir saat seçin.'
+    slotTakenToast: 'Bu saat az önce dolduruldu — lütfen başka bir saat seçin.',
+    savingEllipsis: 'Kaydediliyor…'
   },
   en: {
     pageTitle: 'Court Schedule',
@@ -145,7 +146,8 @@ const I18N = {
     deleteCourse: 'Delete course',
     courseSavedToast: 'Weekly course saved.',
     courseDeletedToast: 'Course deleted.',
-    slotTakenToast: 'That slot was just taken — please pick another.'
+    slotTakenToast: 'That slot was just taken — please pick another.',
+    savingEllipsis: 'Saving…'
   }
 };
 
@@ -668,58 +670,69 @@ async function submitBooking(e) {
   if (!pendingSlot) return;
   const name = document.getElementById('bkName').value.trim();
   if (!name) return;
-  const slot = pendingSlot;
 
-  if (document.getElementById('bkIsCourse').checked) {
-    const course = {
+  const submitBtn = document.getElementById('bookingSubmit');
+  if (submitBtn.disabled) return; // a save is already in flight — ignore extra taps
+  const slot = pendingSlot;
+  const originalLabel = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = I18N[currentLang].savingEllipsis;
+
+  try {
+    if (document.getElementById('bkIsCourse').checked) {
+      const course = {
+        id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+        court: slot.court,
+        dayOfWeek: weekdayIndex(slot.date),
+        startTime: slot.time,
+        courseName: name,
+        description: document.getElementById('bkNotes').value.trim(),
+        startDate: slot.date,
+      };
+      const outcome = await performWrite(
+        () => {
+          if (findOccupant(slot.court, slot.date, slot.time)) return false;
+          courses.push(course);
+          return true;
+        },
+        () => `Add weekly course ${course.court} ${course.startTime} from ${course.startDate} (${name})`,
+        'slotTakenToast'
+      );
+      if (outcome === 'ok') {
+        showToast('courseSavedToast');
+        closeBookingForm();
+      }
+      renderAll();
+      return;
+    }
+
+    const reservation = {
       id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
       court: slot.court,
-      dayOfWeek: weekdayIndex(slot.date),
+      date: slot.date,
       startTime: slot.time,
-      courseName: name,
-      description: document.getElementById('bkNotes').value.trim(),
-      startDate: slot.date,
+      customerName: name,
+      phone: document.getElementById('bkPhone').value.trim(),
+      notes: document.getElementById('bkNotes').value.trim(),
     };
     const outcome = await performWrite(
       () => {
         if (findOccupant(slot.court, slot.date, slot.time)) return false;
-        courses.push(course);
+        reservations.push(reservation);
         return true;
       },
-      () => `Add weekly course ${course.court} ${course.startTime} from ${course.startDate} (${name})`,
+      () => `Book ${reservation.court} ${reservation.date} ${reservation.startTime} (${name})`,
       'slotTakenToast'
     );
     if (outcome === 'ok') {
-      showToast('courseSavedToast');
+      showToast('savedToast');
       closeBookingForm();
     }
     renderAll();
-    return;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalLabel;
   }
-
-  const reservation = {
-    id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
-    court: slot.court,
-    date: slot.date,
-    startTime: slot.time,
-    customerName: name,
-    phone: document.getElementById('bkPhone').value.trim(),
-    notes: document.getElementById('bkNotes').value.trim(),
-  };
-  const outcome = await performWrite(
-    () => {
-      if (findOccupant(slot.court, slot.date, slot.time)) return false;
-      reservations.push(reservation);
-      return true;
-    },
-    () => `Book ${reservation.court} ${reservation.date} ${reservation.startTime} (${name})`,
-    'slotTakenToast'
-  );
-  if (outcome === 'ok') {
-    showToast('savedToast');
-    closeBookingForm();
-  }
-  renderAll();
 }
 
 /* =========================================================================
@@ -777,30 +790,41 @@ async function cancelReservation() {
   if (!pendingReservationId) return;
   const id = pendingReservationId;
 
-  if (pendingOccupantKind === 'course') {
-    const known = courses.find(c => c.id === id); // snapshot, just for the commit message
+  const cancelBtn = document.getElementById('detailCancel');
+  if (cancelBtn.disabled) return; // a save is already in flight — ignore extra taps
+  const originalLabel = cancelBtn.textContent;
+  cancelBtn.disabled = true;
+  cancelBtn.textContent = I18N[currentLang].savingEllipsis;
+
+  try {
+    if (pendingOccupantKind === 'course') {
+      const known = courses.find(c => c.id === id); // snapshot, just for the commit message
+      const outcome = await performWrite(
+        () => { courses = courses.filter(c => c.id !== id); return true; },
+        () => `Delete weekly course ${known?.court ?? ''} ${known?.startTime ?? ''} (${known?.courseName ?? ''})`
+      );
+      if (outcome === 'ok') {
+        showToast('courseDeletedToast');
+        closeDetail();
+      }
+      renderAll();
+      return;
+    }
+
+    const known = reservations.find(r => r.id === id); // snapshot, just for the commit message
     const outcome = await performWrite(
-      () => { courses = courses.filter(c => c.id !== id); return true; },
-      () => `Delete weekly course ${known?.court ?? ''} ${known?.startTime ?? ''} (${known?.courseName ?? ''})`
+      () => { reservations = reservations.filter(r => r.id !== id); return true; },
+      () => `Cancel ${known?.court ?? ''} ${known?.date ?? ''} ${known?.startTime ?? ''} (${known?.customerName ?? ''})`
     );
     if (outcome === 'ok') {
-      showToast('courseDeletedToast');
+      showToast('cancelledToast');
       closeDetail();
     }
     renderAll();
-    return;
+  } finally {
+    cancelBtn.disabled = false;
+    cancelBtn.textContent = originalLabel;
   }
-
-  const known = reservations.find(r => r.id === id); // snapshot, just for the commit message
-  const outcome = await performWrite(
-    () => { reservations = reservations.filter(r => r.id !== id); return true; },
-    () => `Cancel ${known?.court ?? ''} ${known?.date ?? ''} ${known?.startTime ?? ''} (${known?.customerName ?? ''})`
-  );
-  if (outcome === 'ok') {
-    showToast('cancelledToast');
-    closeDetail();
-  }
-  renderAll();
 }
 
 /* =========================================================================

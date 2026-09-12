@@ -111,6 +111,12 @@ button { font: inherit; }
 }
 .btn-danger:hover { background: #953f2c; }
 
+.btn-primary:disabled, .btn-ghost:disabled, .btn-danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .icon-btn {
   width: 34px;
   height: 34px;
