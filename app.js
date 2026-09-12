@@ -81,7 +81,8 @@ const I18N = {
     courseDetail: 'Haftalık kurs',
     deleteCourse: 'Kursu sil',
     courseSavedToast: 'Haftalık kurs kaydedildi.',
-    courseDeletedToast: 'Kurs silindi.'
+    courseDeletedToast: 'Kurs silindi.',
+    slotTakenToast: 'Bu saat az önce dolduruldu — lütfen başka bir saat seçin.'
   },
   en: {
     pageTitle: 'Court Schedule',
@@ -143,7 +144,8 @@ const I18N = {
     courseDetail: 'Weekly course',
     deleteCourse: 'Delete course',
     courseSavedToast: 'Weekly course saved.',
-    courseDeletedToast: 'Course deleted.'
+    courseDeletedToast: 'Course deleted.',
+    slotTakenToast: 'That slot was just taken — please pick another.'
   }
 };
 
@@ -352,10 +354,13 @@ async function fetchReservations() {
   setStatus(token ? 'connectedWrite' : 'connectedRead', 'ok');
 }
 
-async function commitReservations(commitMessage) {
+// Performs one raw save attempt against whatever is currently in `reservations`
+// / `courses` + `fileSha`. Returns 'ok', 'conflict' (sha stale — caller should
+// refresh and retry), or 'error' (already shown a toast, don't retry).
+async function attemptCommit(commitMessage) {
   if (!token) {
     showToast('addTokenToast', true);
-    return false;
+    return 'error';
   }
   const body = {
     message: commitMessage,
@@ -370,24 +375,50 @@ async function commitReservations(commitMessage) {
     body: JSON.stringify(body),
   });
 
-  if (res.status === 409) {
-    showToast('conflictToast', true);
-    await fetchReservations();
-    renderAll();
-    return false;
-  }
+  if (res.status === 409) return 'conflict';
   if (res.status === 401 || res.status === 403) {
     showToast('tokenRejectedToast', true);
-    return false;
+    return 'error';
   }
   if (!res.ok) {
     showToast('saveFailedToast', true, res.status);
-    return false;
+    return 'error';
   }
 
   const data = await res.json();
   fileSha = data.content.sha;
-  return true;
+  return 'ok';
+}
+
+// Every save goes through here. A tab that's been sitting open (or unused)
+// for a while holds a stale copy of the file, so instead of writing whatever
+// it has in memory, this always fetches the latest data first and re-applies
+// the change on top of it — then only retries the fetch+apply+save cycle if
+// a genuine race loses to another write in the meantime. This is what lets a
+// long-idle tab (e.g. a second tab left open) still save without erroring.
+//
+// `mutate()` applies the change to the freshly-fetched reservations/courses
+// and returns true, or returns false if the change no longer makes sense
+// against the fresh data (e.g. the slot was booked by someone else in the
+// meantime) — in which case `blockedToastKey` is shown and nothing is saved.
+async function performWrite(mutate, buildMessage, blockedToastKey) {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await fetchReservations();
+    } catch (e) {
+      return 'error'; // fetchReservations already showed a status message
+    }
+    if (!mutate()) {
+      if (blockedToastKey) showToast(blockedToastKey, true);
+      return 'blocked';
+    }
+    const outcome = await attemptCommit(buildMessage());
+    if (outcome === 'conflict') continue; // someone else saved between our fetch and our write — retry fresh
+    return outcome;
+  }
+  showToast('conflictToast', true); // extremely unlikely to happen 3 times in a row
+  return 'error';
 }
 
 /* =========================================================================
@@ -637,48 +668,58 @@ async function submitBooking(e) {
   if (!pendingSlot) return;
   const name = document.getElementById('bkName').value.trim();
   if (!name) return;
+  const slot = pendingSlot;
 
   if (document.getElementById('bkIsCourse').checked) {
     const course = {
       id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
-      court: pendingSlot.court,
-      dayOfWeek: weekdayIndex(pendingSlot.date),
-      startTime: pendingSlot.time,
+      court: slot.court,
+      dayOfWeek: weekdayIndex(slot.date),
+      startTime: slot.time,
       courseName: name,
       description: document.getElementById('bkNotes').value.trim(),
-      startDate: pendingSlot.date,
+      startDate: slot.date,
     };
-    courses.push(course);
-    const ok = await commitReservations(`Add weekly course ${course.court} ${course.startTime} from ${course.startDate} (${name})`);
-    if (ok) {
+    const outcome = await performWrite(
+      () => {
+        if (findOccupant(slot.court, slot.date, slot.time)) return false;
+        courses.push(course);
+        return true;
+      },
+      () => `Add weekly course ${course.court} ${course.startTime} from ${course.startDate} (${name})`,
+      'slotTakenToast'
+    );
+    if (outcome === 'ok') {
       showToast('courseSavedToast');
       closeBookingForm();
-      renderAll();
-    } else {
-      courses = courses.filter(c => c.id !== course.id);
     }
+    renderAll();
     return;
   }
 
   const reservation = {
     id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
-    court: pendingSlot.court,
-    date: pendingSlot.date,
-    startTime: pendingSlot.time,
+    court: slot.court,
+    date: slot.date,
+    startTime: slot.time,
     customerName: name,
     phone: document.getElementById('bkPhone').value.trim(),
     notes: document.getElementById('bkNotes').value.trim(),
   };
-
-  reservations.push(reservation);
-  const ok = await commitReservations(`Book ${reservation.court} ${reservation.date} ${reservation.startTime} (${name})`);
-  if (ok) {
+  const outcome = await performWrite(
+    () => {
+      if (findOccupant(slot.court, slot.date, slot.time)) return false;
+      reservations.push(reservation);
+      return true;
+    },
+    () => `Book ${reservation.court} ${reservation.date} ${reservation.startTime} (${name})`,
+    'slotTakenToast'
+  );
+  if (outcome === 'ok') {
     showToast('savedToast');
     closeBookingForm();
-    renderAll();
-  } else {
-    reservations = reservations.filter(r => r.id !== reservation.id);
   }
+  renderAll();
 }
 
 /* =========================================================================
@@ -737,34 +778,29 @@ async function cancelReservation() {
   const id = pendingReservationId;
 
   if (pendingOccupantKind === 'course') {
-    const removed = courses.find(c => c.id === id);
-    const backup = courses;
-    courses = courses.filter(c => c.id !== id);
-    const ok = await commitReservations(`Delete weekly course ${removed.court} ${removed.startTime} (${removed.courseName})`);
-    if (ok) {
+    const known = courses.find(c => c.id === id); // snapshot, just for the commit message
+    const outcome = await performWrite(
+      () => { courses = courses.filter(c => c.id !== id); return true; },
+      () => `Delete weekly course ${known?.court ?? ''} ${known?.startTime ?? ''} (${known?.courseName ?? ''})`
+    );
+    if (outcome === 'ok') {
       showToast('courseDeletedToast');
       closeDetail();
-      renderAll();
-    } else {
-      courses = backup;
     }
+    renderAll();
     return;
   }
 
-  const removed = reservations.find(r => r.id === id);
-  const backup = reservations;
-  reservations = reservations.filter(r => r.id !== id);
-
-  const ok = await commitReservations(
-    `Cancel ${removed.court} ${removed.date} ${removed.startTime} (${removed.customerName})`
+  const known = reservations.find(r => r.id === id); // snapshot, just for the commit message
+  const outcome = await performWrite(
+    () => { reservations = reservations.filter(r => r.id !== id); return true; },
+    () => `Cancel ${known?.court ?? ''} ${known?.date ?? ''} ${known?.startTime ?? ''} (${known?.customerName ?? ''})`
   );
-  if (ok) {
+  if (outcome === 'ok') {
     showToast('cancelledToast');
     closeDetail();
-    renderAll();
-  } else {
-    reservations = backup;
   }
+  renderAll();
 }
 
 /* =========================================================================
@@ -859,6 +895,17 @@ async function init() {
   updateDOMTranslations();
   wireSettingsPanel();
   wireScheduleControls();
+
+  // A tab left open in the background (the common case with multiple tabs)
+  // can sit for a long time before it's used again. Refresh it the moment
+  // it becomes visible, so it's showing current data before the person even
+  // tries to book — on top of performWrite() re-checking at save time.
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+      try { await fetchReservations(); } catch (e) { /* status already shown */ }
+      renderAll();
+    }
+  });
 
   try {
     await fetchReservations();

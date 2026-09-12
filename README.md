@@ -99,6 +99,19 @@ specific week. Clicking an open cell books it; clicking a booked cell shows
 the reservation details and (if you're signed in with a token) a cancel
 button.
 
+## Multiple tabs left open
+
+If the site is open in more than one tab (or left open and unused for a
+while), saving used to be able to fail with "the schedule changed elsewhere"
+if the data had moved on since that tab loaded it. Saving now always fetches
+the latest data first and re-applies your change on top of it, retrying
+automatically if it loses a race — so a tab that's been sitting idle just
+works when you come back to it, instead of erroring. A tab also refreshes
+itself the moment it becomes visible again (e.g. switching back to it).
+The only case that still shows a message is the genuine one: someone booked
+the *exact same slot* in the moment between your tap and the save — then
+you're told to pick another time, since there's nothing to retry there.
+
 ## Things to know before you rely on this
 
 - **The data file is public** if this repo is public, which it needs to be
