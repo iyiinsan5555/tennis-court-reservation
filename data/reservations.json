@@ -118,5 +118,15 @@
       "notes": ""
     }
   ],
-  "courses": []
+  "courses": [
+    {
+      "id": "e58ee011-53f5-4eba-a52c-e1de484799c2",
+      "court": "Ana Kort",
+      "dayOfWeek": 0,
+      "startTime": "19:00",
+      "courseName": "Melike",
+      "description": "",
+      "startDate": "2026-09-14"
+    }
+  ]
 }
