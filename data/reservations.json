@@ -145,6 +145,15 @@
       "courseName": "Melike",
       "description": "",
       "startDate": "2026-09-14"
+    },
+    {
+      "id": "96588a55-9bb9-4c7c-a16a-03928b4a3287",
+      "court": "Ana Kort",
+      "dayOfWeek": 2,
+      "startTime": "18:00",
+      "courseName": "Belinay Cansu kızı",
+      "description": "",
+      "startDate": "2026-09-23"
     }
   ]
 }
